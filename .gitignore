@@ -1,2 +1,18 @@
 # Local planning docs
 localPlanningDocs/
+
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.next/
+.turbo/
+
+# Env files
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log

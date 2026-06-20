@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: txnguard-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: txnguard
+      POSTGRES_PASSWORD: txnguard
+      POSTGRES_DB: txnguard
+    ports:
+      - "5433:5432"
+    volumes:
+      - txnguard-postgres-data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: txnguard-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - txnguard-redis-data:/data
+
+volumes:
+  txnguard-postgres-data:
+  txnguard-redis-data:
