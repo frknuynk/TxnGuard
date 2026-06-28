@@ -29,3 +29,13 @@ export const registerResponseSchema = authResponseSchema.extend({
 });
 
 export type RegisterResponse = z.infer<typeof registerResponseSchema>;
+
+export const refreshRequestSchema = z.object({
+    refreshToken: z.string().min(1),
+});
+
+export type RefreshRequest = z.infer<typeof refreshRequestSchema>;
+
+export const logoutRequestSchema = refreshRequestSchema;
+
+export type LogoutRequest = RefreshRequest;
