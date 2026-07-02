@@ -6,6 +6,7 @@ import {
     registerRequestSchema,
  } from "@txnguard/shared";
 import { AuthService } from "./auth.service.js";
+import { parseWithZod } from "../common/zod.js";
 import type { Request } from "express";
 import { JwtAuthGuard } from "./jwt-auth.guard.js";
 
@@ -16,26 +17,32 @@ export class AuthController {
 
     @Post("register")
     register(@Body() body: unknown) {
-        const input = registerRequestSchema.parse(body);
+        const input = parseWithZod(registerRequestSchema, body);
         return this.auth.register(input);
     }
 
     @Post("login")
     login(@Body() body:unknown) {
-        const input = loginRequestSchema.parse(body);
+        const input = parseWithZod(loginRequestSchema, body);
         return this.auth.login(input);
     }
 
     @Post("refresh")
     refresh(@Body() body:unknown) {
-        const input = refreshRequestSchema.parse(body);
+        const input = parseWithZod(refreshRequestSchema, body);
         return this.auth.refresh(input);
     }
 
     @Post("logout")
     logout(@Body() body:unknown) {
-        const input = logoutRequestSchema.parse(body);
+        const input = parseWithZod(logoutRequestSchema, body);
         return this.auth.logout(input);
+    }
+
+    @Post("api-key/rotate")
+    @UseGuards(JwtAuthGuard)
+    rotateApiKey(@Req() request: Request) {
+        return this.auth.rotateApiKey(request.currentMerchant!.id);
     }
 
     @Get("me")

@@ -35,6 +35,13 @@ type VerifiedRefreshTokenPayload = RefreshTokenPayload & {
   exp: number;
 };
 
+type StoredRefreshToken = typeof refreshTokens.$inferSelect;
+
+type ValidRefreshToken = {
+  payload: VerifiedRefreshTokenPayload;
+  storedRefreshToken: StoredRefreshToken; 
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -69,13 +76,7 @@ export class AuthService {
 
     const accessToken = await this.signAccessToken(payload);
 
-    const refreshTokenId = randomUUID();
-    const refreshToken = await this.signRefreshToken({
-      ...payload,
-      jti: refreshTokenId
-    });
-
-    await this.persistRefreshToken(refreshTokenId ,merchant.id, refreshToken);
+    const refreshToken = await this.createRefreshToken(merchant.id, payload);
 
     return {
       merchant: this.merchants.toPublicMerchant(merchant),
@@ -108,13 +109,7 @@ export class AuthService {
 
     const accessToken = await this.signAccessToken(payload);
 
-    const refreshTokenId = randomUUID();
-    const refreshToken = await this.signRefreshToken({
-      ...payload,
-      jti: refreshTokenId
-    });
-
-    await this.persistRefreshToken(refreshTokenId ,merchant.id, refreshToken);
+    const refreshToken = await this.createRefreshToken(merchant.id, payload);
 
     return {
       merchant: this.merchants.toPublicMerchant(merchant),
@@ -124,36 +119,7 @@ export class AuthService {
   } 
 
   async refresh(input: RefreshRequest): Promise<AuthResponse> {
-    const payload = await this.verifyRefreshToken(input.refreshToken);
-
-    const rows = await this.db.client
-      .select()
-      .from(refreshTokens)
-      .where(eq(refreshTokens.id, payload.jti))
-      .limit(1);
-    
-    const storedRefreshToken = rows[0] ?? null;
-
-    if (!storedRefreshToken) {
-      throw new UnauthorizedException("Invalid refresh token.");
-    }
-
-    if (storedRefreshToken.revokedAt) {
-      throw new UnauthorizedException("Invalid refresh token.");
-    }
-
-    if (storedRefreshToken.expiresAt < new Date()){
-      throw new UnauthorizedException("Invalid refresh token.");
-    }
-
-    const isRefreshTokenValid = await this.verifySecret(
-      storedRefreshToken.tokenHash,
-      input.refreshToken
-    );
-
-    if (!isRefreshTokenValid) {
-      throw new UnauthorizedException("Invalid refresh token.");
-    }
+    const { payload } = await this.getValidRefreshToken(input.refreshToken);
 
     const merchant = await this.merchants.findById(payload.sub);
 
@@ -174,28 +140,7 @@ export class AuthService {
   }
 
   async logout(input: LogoutRequest): Promise<{success: true}> {
-    const payload = await this.verifyRefreshToken(input.refreshToken);
-
-    const rows = await this.db.client
-      .select()
-      .from(refreshTokens)
-      .where(eq(refreshTokens.id, payload.jti))
-      .limit(1);
-    
-    const storedRefreshToken = rows[0] ?? null;
-
-    if (!storedRefreshToken){
-      throw new UnauthorizedException("Invalid refresh token.");
-    }
-
-    const isRefreshTokenValid = await this.verifySecret(
-      storedRefreshToken.tokenHash,
-      input.refreshToken
-    );
-
-    if (!isRefreshTokenValid) {
-      throw new UnauthorizedException("Invalid refresh token.");
-    }
+    const { payload } = await this.getValidRefreshToken(input.refreshToken);
 
     await this.db.client
       .update(refreshTokens)
@@ -206,6 +151,22 @@ export class AuthService {
       .where(eq(refreshTokens.id, payload.jti));
 
     return { success: true };
+  }
+
+  async rotateApiKey(merchantId: string): Promise<{ apiKey: string }> {
+    const apiKey = this.generateApiKey();
+    const apiKeyHash = await this.hashSecret(apiKey);
+
+    const merchant = await this.merchants.updateApiKeyHash(
+      merchantId,
+      apiKeyHash,
+    );
+
+    if (!merchant || !merchant.isActive) {
+      throw new UnauthorizedException("Invalid merchant");
+    }
+
+    return { apiKey };
   }
 
   private hashSecret(value: string): Promise<string> {
@@ -230,7 +191,7 @@ export class AuthService {
     });
   }
 
-  async verifyAccessToken(accessToken: string) : Promise<AuthTokenPayload> {
+  async verifyAccessToken(accessToken: string): Promise<AuthTokenPayload> {
     try {
       return await this.jwt.verifyAsync<AuthTokenPayload>(accessToken, {
         secret: env.JWT_ACCESS_SECRET,
@@ -251,7 +212,7 @@ export class AuthService {
         },
       );
     } catch {
-      throw new UnauthorizedException("Invalid refresh token.")
+      throw new UnauthorizedException("Invalid refresh token.");
     }
   }
 
@@ -261,10 +222,6 @@ export class AuthService {
 
   private generateApiKey(): string {
     return this.generateSecret("tg_live");
-  }
-
-  private generateRefreshToken(): string {
-    return this.generateSecret("rt");
   }
 
   private async persistRefreshToken(
@@ -281,5 +238,61 @@ export class AuthService {
       tokenHash,
       expiresAt,
     });
+  }
+
+  private async createRefreshToken(
+    merchantId: string,
+    payload: AuthTokenPayload,
+  ): Promise<string> {
+    const refreshTokenId = randomUUID();
+
+    const refreshToken = await this.signRefreshToken({
+      ...payload,
+      jti: refreshTokenId,
+    });
+
+    await this.persistRefreshToken(refreshTokenId, merchantId, refreshToken);
+
+    return refreshToken;
+  }
+
+  private async getValidRefreshToken(
+    refreshToken: string,
+  ): Promise<ValidRefreshToken> {
+    const payload = await this.verifyRefreshToken(refreshToken);
+
+    const rows = await this.db.client
+      .select()
+      .from(refreshTokens)
+      .where(eq(refreshTokens.id, payload.jti))
+      .limit(1);
+
+    const storedRefreshToken = rows[0] ?? null;
+
+    if (!storedRefreshToken) {
+      throw new UnauthorizedException("Invalid refresh token.");
+    }
+
+    if (storedRefreshToken.revokedAt) {
+      throw new UnauthorizedException("Invalid refresh token.");
+    }
+
+    if (storedRefreshToken.expiresAt < new Date()) {
+      throw new UnauthorizedException("Invalid refresh token.");
+    }
+
+    const isRefreshTokenValid = await this.verifySecret(
+      storedRefreshToken.tokenHash,
+      refreshToken,
+    );
+
+    if (!isRefreshTokenValid) {
+      throw new UnauthorizedException("Invalid refresh token.");
+    }
+
+    return {
+      payload,
+      storedRefreshToken,
+    };
   }
 }
