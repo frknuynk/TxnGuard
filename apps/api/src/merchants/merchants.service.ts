@@ -1,3 +1,4 @@
+import argon2 from "argon2";
 import { Injectable } from "@nestjs/common";
 import type { CurrentMerchant } from "@txnguard/shared";
 import { eq } from "drizzle-orm";
@@ -34,6 +35,24 @@ export class MerchantsService {
             .limit(1);
 
         return rows[0] ?? null;
+    }
+
+    async findActiveMerchantByApiKey(apiKey: string): Promise<MerchantRow | null> {
+        const activeMerchants = await this.db.client
+            .select()
+            .from(merchants)
+            .where(eq(merchants.isActive, true));
+
+            //API KEY are stored as salted hashes, so each active mercahnt hash must be verified.
+            for (const merchant of activeMerchants) {
+                const isApiKeyValid = await argon2.verify(merchant.apiKeyHash, apiKey);
+
+                if (isApiKeyValid) {
+                    return merchant;
+                }
+            }
+
+            return null;
     }
 
     async createMerchant(input: CreateMerchantInput): Promise<MerchantRow> {
