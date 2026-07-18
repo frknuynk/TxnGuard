@@ -58,7 +58,7 @@ export class TransactionsController {
         if (!result) {
             throw new NotFoundException("Transaction not found.");
         }
-        
+
         return result;
     }
 }

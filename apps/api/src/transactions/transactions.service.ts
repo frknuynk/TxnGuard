@@ -59,7 +59,7 @@ export class TransactionsService {
                 status: fraudDecision.status,
             })
             .returning();
-        
+
         const transaction = this.toPublicTransaction(rows[0]!);
 
         await this.insertFraudEvents(transaction.id, fraudDecision.ruleResults);
@@ -78,8 +78,8 @@ export class TransactionsService {
             .orderBy(desc(transactions.createdAt))
             .limit(query.limit)
             .offset(query.offset);
-        
-        const publicTransactions = rows.map((transaction) => 
+
+        const publicTransactions = rows.map((transaction) =>
             this.toPublicTransaction(transaction),
         );
 
@@ -107,7 +107,7 @@ export class TransactionsService {
                 ),
             )
             .limit(1);
-        
+
         const transaction = rows[0] ?? null;
 
         if (!transaction) {

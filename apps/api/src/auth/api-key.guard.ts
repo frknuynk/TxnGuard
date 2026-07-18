@@ -12,7 +12,7 @@ export class ApiKeyGuard implements CanActivate {
     constructor(private readonly merchants: MerchantsService) {}
 
     // Runs before the protected route and decides whether the request can continue.
-    async canActivate(context: ExecutionContext): Promise<boolean> {    
+    async canActivate(context: ExecutionContext): Promise<boolean> {
         const request = context.switchToHttp().getRequest<Request>();
         const apiKey = this.extractApiKey(request);
 
