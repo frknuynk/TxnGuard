@@ -1,8 +1,7 @@
 import { BadRequestException } from "@nestjs/common";
-import { error } from "console";
-import { ZodError, type ZodSchema } from "zod";
+import { ZodError, type ZodTypeAny } from "zod";
 
-export function parseWithZod<T>(schema: ZodSchema<T>, value: unknown): T {
+export function parseWithZod<TSchema extends ZodTypeAny>(schema: TSchema, value: unknown): TSchema["_output"] {
     try {
         return schema.parse(value);
     } catch(error) {
@@ -12,7 +11,6 @@ export function parseWithZod<T>(schema: ZodSchema<T>, value: unknown): T {
                 issues: error.issues
             });
         }
+        throw error;
     }
-
-    throw error;
 }
