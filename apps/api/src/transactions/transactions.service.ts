@@ -2,11 +2,15 @@ import { Injectable } from "@nestjs/common";
 import type {
   CreateTransactionRequest,
   FraudSeverity,
+  GetTransactionResponse,
+  ListTransactionsQuery,
+  ListTransactionsResponse,
   Transaction,
   TransactionStatus,
 } from "@txnguard/shared";
 import { DbService } from "../db/db.service.js";
 import { fraudEvents, transactions } from "../db/schema.js";
+import { and, desc, eq } from "drizzle-orm";
 
 
 type FraudRuleResult = {
@@ -61,6 +65,58 @@ export class TransactionsService {
         await this.insertFraudEvents(transaction.id, fraudDecision.ruleResults);
 
         return transaction;
+    }
+
+    async listTransactions(
+        merchantId: string,
+        query: ListTransactionsQuery,
+    ): Promise<ListTransactionsResponse> {
+        const rows = await this.db.client
+            .select()
+            .from(transactions)
+            .where(eq(transactions.merchantId, merchantId))
+            .orderBy(desc(transactions.createdAt))
+            .limit(query.limit)
+            .offset(query.offset);
+        
+        const publicTransactions = rows.map((transaction) => 
+            this.toPublicTransaction(transaction),
+        );
+
+        return {
+            transactions: publicTransactions,
+            pagination: {
+                limit: query.limit,
+                offset: query.offset,
+                count: publicTransactions.length,
+            },
+        };
+    }
+
+    async findTransactionById(
+        merchantId: string,
+        transactionId: string,
+    ): Promise<GetTransactionResponse | null> {
+        const rows = await this.db.client
+            .select()
+            .from(transactions)
+            .where(
+                and(
+                    eq(transactions.id, transactionId),
+                    eq(transactions.merchantId, merchantId),
+                ),
+            )
+            .limit(1);
+        
+        const transaction = rows[0] ?? null;
+
+        if (!transaction) {
+            return null;
+        }
+
+        return {
+            transaction: this.toPublicTransaction(transaction),
+        };
     }
 
     private scoreTransaction(input: CreateTransactionRequest): FraudDecision {
