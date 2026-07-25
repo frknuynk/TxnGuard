@@ -5,6 +5,12 @@ export const transactionStatuses = ["approved", "flagged", "declined"] as const;
 
 export type TransactionStatus = (typeof transactionStatuses)[number];
 
+export const TransactionStatusValues = {
+    Approved: "approved",
+    Flagged: "flagged",
+    Declined: "declined",
+} as const satisfies Record<string, TransactionStatus>;
+
 export const createTransactionRequestSchema = z.object({
     amountMinor: z.number().int().positive(),
     currency: z.string().length(3),

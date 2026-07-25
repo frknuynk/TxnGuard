@@ -11,36 +11,28 @@ import type {
 import { DbService } from "../db/db.service.js";
 import { fraudEvents, transactions } from "../db/schema.js";
 import { and, desc, eq } from "drizzle-orm";
+import {
+  FraudEngineService,
+  type FraudRuleResult,
+} from "../fraud-engine/fraud-engine.service.js";
 
-
-type FraudRuleResult = {
-    key: string;
-    scoreImpact: number;
-    reason: string;
-    metadata: Record<string, unknown>;
-};
-
-type FraudDecision = {
-    score: number;
-    severity: FraudSeverity;
-    status: TransactionStatus;
-    reasons: string[];
-    metadata: Record<string, unknown>;
-    ruleResults: FraudRuleResult[];
-};
 
 type TransactionRow = typeof transactions.$inferSelect;
 
 @Injectable()
 export class TransactionsService {
-    constructor(private readonly db: DbService) {}
+    constructor(
+        private readonly db: DbService,
+        private readonly fraudEngine: FraudEngineService,
+    ) {}
+    
 
     async createTransaction(
         merchantId: string,
         input: CreateTransactionRequest,
     ): Promise<Transaction> {
 
-        const fraudDecision = this.scoreTransaction(input);
+        const fraudDecision = this.fraudEngine.scoreTransaction(input);
 
         const rows = await this.db.client
             .insert(transactions)
@@ -119,53 +111,6 @@ export class TransactionsService {
         };
     }
 
-    private scoreTransaction(input: CreateTransactionRequest): FraudDecision {
-        const ruleResults: FraudRuleResult[] = [];
-
-        if (input.cardCountry !== input.ipCountry) {
-            ruleResults.push({
-                key: "country_mismatch",
-                scoreImpact: 30,
-                reason: "Card country does not match IP country.",
-                metadata: {
-                    cardCountry: input.cardCountry,
-                    ipCountry: input.ipCountry,
-                },
-            });
-        }
-
-        if (input.amountMinor >= 100000) {
-            ruleResults.push({
-                key: "high_amount",
-                scoreImpact: 25,
-                reason: "Transaction amount is high.",
-                metadata: {
-                    amountMinor: input.amountMinor,
-                    thresholdMinor: 100000,
-                },
-            });
-        }
-
-        const score = Math.min(
-            100,
-            ruleResults.reduce((total, rule) => total + rule.scoreImpact, 0),
-        );
-
-        const severity = this.mapScoreToSeverity(score);
-        const status = this.mapScoreToStatus(score);
-
-        return {
-            score,
-            severity,
-            status,
-            reasons: ruleResults.map((rule) => rule.key),
-            metadata: {
-                rules: ruleResults,
-            },
-            ruleResults,
-        };
-    }
-
     private async insertFraudEvents(
         transactionId: string,
         ruleResults: FraudRuleResult[],
@@ -183,20 +128,6 @@ export class TransactionsService {
                 metadata: rule.metadata,
             })),
         );
-    }
-
-    private mapScoreToSeverity(score: number): FraudSeverity {
-        if (score >= 90) return "critical";
-        if (score >= 70) return "high";
-        if (score >= 40) return "medium";
-        if (score >= 20) return "low";
-        return "none";
-    }
-
-    private mapScoreToStatus(score: number): TransactionStatus {
-        if (score >= 70) return "declined";
-        if (score >= 40) return "flagged";
-        return "approved";
     }
 
     private toPublicTransaction(transaction: TransactionRow): Transaction {
