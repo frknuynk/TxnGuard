@@ -17,3 +17,6 @@ dist/
 # Logs
 *.log
 .pnpm-store/
+
+# Agents
+.agents/
