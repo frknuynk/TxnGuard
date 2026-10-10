@@ -47,6 +47,16 @@ export class TransactionsController {
         );
     }
 
+    @Get("risky")
+    @UseGuards(JwtAuthGuard)
+    risky(@Query() query: unknown, @Req() request: Request) {
+        const input = parseWithZod(listTransactionsQuerySchema, {
+            ...(query as Record<string, unknown>),
+            minScore: (query as Record<string, unknown>).minScore ?? 41,
+        });
+        return this.transactions.listTransactions(request.currentMerchant!.id, input);
+    }
+
     @Get(":id")
     @UseGuards(JwtAuthGuard)
     async findById(@Param("id") id: string, @Req() request: Request) {

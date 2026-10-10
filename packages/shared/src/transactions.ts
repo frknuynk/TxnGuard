@@ -18,6 +18,7 @@ export const createTransactionRequestSchema = z.object({
     cardCountry: z.string().length(2),
     ipAddress: z.string().min(1).max(45),
     ipCountry: z.string().length(2),
+    idempotencyKey: z.string().min(8).max(120).optional(),
 });
 
 export type CreateTransactionRequest = z.infer<typeof createTransactionRequestSchema>;
@@ -51,7 +52,16 @@ export type CreateTransactionResponse = z.infer<typeof createTransactionResponse
 export const listTransactionsQuerySchema = z.object({
     limit: z.coerce.number().int().positive().max(100).default(20),
     offset: z.coerce.number().int().min(0).default(0),
-});
+    status: z.enum(transactionStatuses).optional(),
+    severity: z.enum(fraudSeverities).optional(),
+    minScore: z.coerce.number().int().min(0).max(100).optional(),
+    maxScore: z.coerce.number().int().min(0).max(100).optional(),
+    from: z.coerce.date().optional(),
+    to: z.coerce.date().optional(),
+}).refine(
+    (value) => value.minScore === undefined || value.maxScore === undefined || value.minScore <= value.maxScore,
+    { message: "minScore must be less than or equal to maxScore", path: ["minScore"] },
+);
 
 export type ListTransactionsQuery = z.output<typeof listTransactionsQuerySchema>;
 
@@ -61,6 +71,7 @@ export const listTransactionsResponseSchema = z.object({
         limit: z.number().int(),
         offset: z.number().int(),
         count: z.number().int(),
+        total: z.number().int(),
     }),
 });
 
@@ -68,6 +79,18 @@ export type ListTransactionsResponse = z.infer<
   typeof listTransactionsResponseSchema
 >;
 
-export const getTransactionResponseSchema = z.object({ transaction: transactionSchema });
+export const fraudEventSchema = z.object({
+    id: z.string().uuid(),
+    ruleKey: z.string(),
+    scoreImpact: z.number().int(),
+    reason: z.string(),
+    metadata: z.record(z.unknown()),
+    createdAt: z.string(),
+});
+
+export const getTransactionResponseSchema = z.object({
+    transaction: transactionSchema,
+    fraudEvents: z.array(fraudEventSchema),
+});
 
 export type GetTransactionResponse = z.infer<typeof getTransactionResponseSchema>;

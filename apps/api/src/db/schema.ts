@@ -7,6 +7,7 @@ import {
   timestamp,
   uuid,
   varchar,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 export const merchants = pgTable(
@@ -66,6 +67,7 @@ export const transactions = pgTable(
     fraudReasons: jsonb("fraud_reasons").notNull().default([]),
     fraudMetadata: jsonb("fraud_metadata").notNull().default({}),
     status: varchar("status", { length: 20 }).notNull().default("approved"),
+    idempotencyKey: varchar("idempotency_key", { length: 120 }),
 
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -79,6 +81,10 @@ export const transactions = pgTable(
     index("transactions_merchant_id_created_at_idx").on(
       table.merchantId,
       table.createdAt,
+    ),
+    uniqueIndex("transactions_merchant_id_idempotency_key_idx").on(
+      table.merchantId,
+      table.idempotencyKey,
     ),
   ],
 );

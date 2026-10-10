@@ -11,6 +11,11 @@ services:
       - "5433:5432"
     volumes:
       - txnguard-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U txnguard -d txnguard"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
@@ -20,6 +25,11 @@ services:
       - "6379:6379"
     volumes:
       - txnguard-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
 volumes:
   txnguard-postgres-data:

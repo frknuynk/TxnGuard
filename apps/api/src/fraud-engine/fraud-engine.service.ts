@@ -25,9 +25,16 @@ export type FraudDecision = {
     ruleResults: FraudRuleResult[];
 };
 
+export type FraudContext = {
+    velocityCount?: number;
+    velocityThreshold?: number;
+    velocityWindowSeconds?: number;
+    evaluatedAt?: Date;
+};
+
 @Injectable()
 export class FraudEngineService {
-    scoreTransaction(input: CreateTransactionRequest): FraudDecision {
+    scoreTransaction(input: CreateTransactionRequest, context: FraudContext = {}): FraudDecision {
         const ruleResults: FraudRuleResult[] = [];
 
         if (input.cardCountry !== input.ipCountry) {
@@ -62,6 +69,35 @@ export class FraudEngineService {
             );
         }
 
+
+        if (
+            context.velocityCount !== undefined &&
+            context.velocityThreshold !== undefined &&
+            context.velocityCount > context.velocityThreshold
+        ) {
+            const rule = FraudRules.MerchantVelocity;
+            ruleResults.push(this.createRuleResult(rule.key, rule.scoreImpact, rule.reason, {
+                count: context.velocityCount,
+                threshold: context.velocityThreshold,
+                windowSeconds: context.velocityWindowSeconds,
+            }));
+        }
+
+        const evaluatedAt = context.evaluatedAt ?? new Date();
+        const hour = evaluatedAt.getUTCHours();
+        const nightRule = FraudRules.NightTimeHighValue;
+        if (
+            input.amountMinor >= nightRule.thresholdMinor &&
+            hour >= nightRule.startHourUtc &&
+            hour < nightRule.endHourUtc
+        ) {
+            ruleResults.push(this.createRuleResult(nightRule.key, nightRule.scoreImpact, nightRule.reason, {
+                amountMinor: input.amountMinor,
+                evaluatedHourUtc: hour,
+                thresholdMinor: nightRule.thresholdMinor,
+            }));
+        }
+
         const score = Math.min(
             100,
             ruleResults.reduce((total, rule) => total + rule.scoreImpact, 0),
@@ -77,6 +113,7 @@ export class FraudEngineService {
             reasons: ruleResults.map((rule) => rule.key),
             metadata: {
                 rules: ruleResults,
+                velocityAvailable: context.velocityCount !== undefined,
             },
             ruleResults,
         };
@@ -97,16 +134,16 @@ export class FraudEngineService {
     }
     
     private mapScoreToSeverity(score: number): FraudSeverity {
-        if (score >= 90) return FraudSeverityValues.Critical;
-        if (score >= 70) return FraudSeverityValues.High;
-        if (score >= 40) return FraudSeverityValues.Medium;
-        if (score >= 20) return FraudSeverityValues.Low;
+        if (score > 80) return FraudSeverityValues.Critical;
+        if (score > 60) return FraudSeverityValues.High;
+        if (score > 40) return FraudSeverityValues.Medium;
+        if (score > 20) return FraudSeverityValues.Low;
         return FraudSeverityValues.None;
     }
 
     private mapScoreToStatus(score: number): TransactionStatus {
-        if (score >= 70) return TransactionStatusValues.Declined;
-        if (score >= 40) return TransactionStatusValues.Flagged;
+        if (score > 80) return TransactionStatusValues.Declined;
+        if (score > 40) return TransactionStatusValues.Flagged;
         return TransactionStatusValues.Approved;
     }
 }

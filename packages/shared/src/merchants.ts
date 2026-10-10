@@ -10,3 +10,9 @@ export const currentMerchantSchema = z.object({
 });
 
 export type CurrentMerchant = z.infer<typeof currentMerchantSchema>;
+
+export const updateMerchantRequestSchema = z.object({
+    name: z.string().min(2).max(120),
+});
+
+export type UpdateMerchantRequest = z.infer<typeof updateMerchantRequestSchema>;

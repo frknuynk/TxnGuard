@@ -82,6 +82,15 @@ export class MerchantsService {
         return rows[0] ?? null;
     }
 
+    async updateProfile(merchantId: string, name: string): Promise<CurrentMerchant | null> {
+        const rows = await this.db.client.update(merchants).set({
+            name,
+            updatedAt: new Date(),
+        }).where(eq(merchants.id, merchantId)).returning();
+
+        return rows[0] ? this.toPublicMerchant(rows[0]) : null;
+    }
+
     toPublicMerchant(merchant: MerchantRow): CurrentMerchant {
         return {
             id: merchant.id,

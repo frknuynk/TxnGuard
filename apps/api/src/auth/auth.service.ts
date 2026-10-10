@@ -1,7 +1,10 @@
 import { 
   ConflictException, 
+  HttpException,
+  HttpStatus,
   Injectable, 
-  UnauthorizedException 
+  ServiceUnavailableException,
+  UnauthorizedException,
 } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
 import type { 
@@ -20,6 +23,7 @@ import { eq } from "drizzle-orm";
 import { DbService } from "../db/db.service.js";
 import { refreshTokens } from "../db/schema.js";
 import { MerchantsService } from "../merchants/merchants.service.js";
+import { RedisService } from "../redis/redis.service.js";
 
 type AuthTokenPayload = {
   sub: string;
@@ -48,6 +52,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly merchants: MerchantsService,
     private readonly db: DbService,
+    private readonly redis: RedisService,
   ) {}
 
   async register(input: RegisterRequest): Promise<RegisterResponse> {
@@ -119,7 +124,7 @@ export class AuthService {
   } 
 
   async refresh(input: RefreshRequest): Promise<AuthResponse> {
-    const { payload } = await this.getValidRefreshToken(input.refreshToken);
+    const { payload, storedRefreshToken } = await this.getValidRefreshToken(input.refreshToken);
 
     const merchant = await this.merchants.findById(payload.sub);
 
@@ -127,15 +132,22 @@ export class AuthService {
       throw new UnauthorizedException("Invalid refresh token.");
     }
 
-    const accessToken = await this.signAccessToken({
+    await this.db.client.update(refreshTokens).set({
+      revokedAt: new Date(),
+      updatedAt: new Date(),
+    }).where(eq(refreshTokens.id, storedRefreshToken.id));
+
+    const tokenPayload = {
       sub: merchant.id,
       email: merchant.email
-    });
+    };
+    const accessToken = await this.signAccessToken(tokenPayload);
+    const refreshToken = await this.createRefreshToken(merchant.id, tokenPayload);
 
     return {
       merchant: this.merchants.toPublicMerchant(merchant),
       accessToken,
-      refreshToken: input.refreshToken
+      refreshToken,
     }
   }
 
@@ -154,6 +166,24 @@ export class AuthService {
   }
 
   async rotateApiKey(merchantId: string): Promise<{ apiKey: string }> {
+    let rateLimit: { count: number; retryAfterSeconds: number };
+    try {
+      rateLimit = await this.redis.consumeFixedWindow(
+        `auth:merchant:${merchantId}:api-key-rotation`,
+        env.API_KEY_ROTATION_WINDOW_SECONDS,
+      );
+    } catch {
+      throw new ServiceUnavailableException("API key rotation is temporarily unavailable. Please try again shortly.");
+    }
+
+    if (rateLimit.count > env.API_KEY_ROTATION_LIMIT) {
+      const waitMinutes = Math.max(1, Math.ceil(rateLimit.retryAfterSeconds / 60));
+      throw new HttpException(
+        `API key rotation limit reached. Try again in ${waitMinutes} minute${waitMinutes === 1 ? "" : "s"}.`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+
     const apiKey = this.generateApiKey();
     const apiKeyHash = await this.hashSecret(apiKey);
 
