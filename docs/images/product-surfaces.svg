@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">TxnGuard operations dashboard surfaces</title>
+  <desc id="desc">Illustrated overview, transactions, and fraud-review surfaces from the TxnGuard merchant dashboard.</desc>
+  <defs>
+    <linearGradient id="canvas" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#f4f8f6"/><stop offset="1" stop-color="#e6eeea"/></linearGradient>
+    <linearGradient id="nav" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#0d251d"/><stop offset="1" stop-color="#14392d"/></linearGradient>
+    <linearGradient id="active" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#176b55"/><stop offset="1" stop-color="#1e483b"/></linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#15352a" flood-opacity=".16"/></filter>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#183b2f" flood-opacity=".12"/></filter>
+    <style>
+      .ui { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .caption { fill:#587066; font-size:15px; font-weight:700; letter-spacing:2px; }
+      .title { fill:#11241c; font-size:30px; font-weight:750; letter-spacing:-.8px; }
+      .copy { fill:#667b72; font-size:15px; }
+      .navcopy { fill:#b9cec5; font-size:14px; font-weight:650; }
+      .tiny { fill:#789087; font-size:11px; font-weight:750; letter-spacing:1.2px; }
+      .label { fill:#49635a; font-size:13px; font-weight:650; }
+      .value { fill:#14271f; font-size:26px; font-weight:760; letter-spacing:-.6px; }
+      .tablehead { fill:#70857c; font-size:10px; font-weight:750; letter-spacing:1.2px; }
+      .cell { fill:#29453a; font-size:12px; font-weight:650; }
+      .muted { fill:#6b8177; font-size:12px; }
+    </style>
+  </defs>
+  <rect width="1440" height="900" fill="url(#canvas)"/>
+  <g class="ui">
+    <text x="94" y="92" class="caption">TXNGUARD PRODUCT SURFACES</text>
+    <text x="94" y="140" class="title" style="font-size:38px">One merchant workspace, from decision to investigation.</text>
+    <text x="94" y="170" class="copy">Illustrated from the local product experience — overview, transaction review, and fraud triage.</text>
+
+    <g transform="translate(94 224)" filter="url(#shadow)">
+      <rect width="392" height="548" rx="18" fill="#fbfcfb"/>
+      <rect width="104" height="548" rx="18" fill="url(#nav)"/>
+      <rect x="86" width="18" height="548" fill="url(#nav)"/>
+      <circle cx="32" cy="34" r="14" fill="#050a08" stroke="#386353"/>
+      <text x="27" y="39" fill="white" font-size="14" font-weight="800">N</text>
+      <text x="17" y="82" class="navcopy" style="font-size:10px">OVERVIEW</text>
+      <rect x="11" y="98" width="82" height="38" rx="9" fill="url(#active)" stroke="#5fe4b5" stroke-opacity=".45"/>
+      <text x="23" y="121" fill="white" font-size="11" font-weight="700">Dashboard</text>
+      <text x="17" y="168" class="navcopy" style="font-size:10px">PAYMENTS</text>
+      <text x="17" y="200" class="navcopy" style="font-size:10px">FRAUD</text>
+      <text x="17" y="232" class="navcopy" style="font-size:10px">SETTINGS</text>
+      <circle cx="32" cy="505" r="16" fill="#d5f2e6"/><text x="24" y="510" fill="#17634d" font-size="10" font-weight="800">TH</text>
+      <text x="122" y="42" class="tiny">RISK OPERATIONS</text>
+      <text x="122" y="77" class="title">Overview</text>
+      <text x="122" y="102" class="copy" style="font-size:12px">Payment activity and fraud posture.</text>
+      <g transform="translate(122 128)">
+        <rect width="120" height="100" rx="12" fill="#fff" stroke="#dfebe5"/>
+        <text x="14" y="25" class="label" style="font-size:11px">TRANSACTION VOLUME</text><text x="14" y="60" class="value" style="font-size:21px">$15,325</text><text x="14" y="82" class="muted" style="font-size:10px">25 payments</text>
+        <rect x="132" width="120" height="100" rx="12" fill="#fff" stroke="#dfebe5"/>
+        <text x="146" y="25" class="label" style="font-size:11px">APPROVAL RATE</text><text x="146" y="60" class="value" style="font-size:21px">64%</text><text x="146" y="82" class="muted" style="font-size:10px">16 approved</text>
+      </g>
+      <g transform="translate(122 246)">
+        <rect width="252" height="184" rx="12" fill="#fff" stroke="#dfebe5"/>
+        <text x="14" y="28" class="label">ACTIVITY</text><text x="14" y="50" class="muted" style="font-size:10px">Last 24 hours</text>
+        <path d="M18 156H236" stroke="#e7eeea"/><path d="M18 125H236" stroke="#e7eeea"/><path d="M18 94H236" stroke="#e7eeea"/>
+        <g fill="#17785f"><rect x="32" y="120" width="11" height="36" rx="3"/><rect x="52" y="98" width="11" height="58" rx="3"/><rect x="72" y="70" width="11" height="86" rx="3"/><rect x="92" y="112" width="11" height="44" rx="3"/><rect x="112" y="82" width="11" height="74" rx="3"/><rect x="132" y="50" width="11" height="106" rx="3"/><rect x="152" y="102" width="11" height="54" rx="3"/><rect x="172" y="122" width="11" height="34" rx="3"/><rect x="192" y="112" width="11" height="44" rx="3"/><rect x="212" y="136" width="11" height="20" rx="3"/></g>
+      </g>
+      <text x="122" y="468" class="label">SEVERITY MIX</text>
+      <g transform="translate(122 484)"><rect width="252" height="9" rx="5" fill="#e7efeb"/><rect width="86" height="9" rx="5" fill="#e6bc55"/><rect x="88" width="70" height="9" rx="5" fill="#e87f5f"/><rect x="160" width="47" height="9" rx="5" fill="#d94e5d"/></g>
+      <text x="122" y="524" class="muted" style="font-size:10px">Approved 16  ·  Flagged 6  ·  Declined 3</text>
+    </g>
+
+    <g transform="translate(524 224)" filter="url(#shadow)">
+      <rect width="392" height="548" rx="18" fill="#fbfcfb"/>
+      <rect width="104" height="548" rx="18" fill="url(#nav)"/><rect x="86" width="18" height="548" fill="url(#nav)"/>
+      <circle cx="32" cy="34" r="14" fill="#050a08" stroke="#386353"/><text x="27" y="39" fill="white" font-size="14" font-weight="800">N</text>
+      <text x="17" y="82" class="navcopy" style="font-size:10px">OVERVIEW</text><text x="17" y="114" class="navcopy" style="font-size:10px">PAYMENTS</text>
+      <rect x="11" y="130" width="82" height="38" rx="9" fill="url(#active)" stroke="#5fe4b5" stroke-opacity=".45"/><text x="23" y="153" fill="white" font-size="11" font-weight="700">Transactions</text>
+      <text x="17" y="198" class="navcopy" style="font-size:10px">FRAUD</text><text x="17" y="230" class="navcopy" style="font-size:10px">SETTINGS</text>
+      <text x="122" y="42" class="tiny">PAYMENTS</text><text x="122" y="77" class="title">Transactions</text><text x="122" y="102" class="copy" style="font-size:12px">Inspect every payment decision.</text>
+      <rect x="122" y="125" width="252" height="72" rx="12" fill="#fff" stroke="#dfebe5"/>
+      <text x="138" y="151" class="label" style="font-size:11px">REFINE QUEUE</text><text x="138" y="172" class="muted" style="font-size:10px">Status and severity stay in context.</text>
+      <rect x="274" y="140" width="84" height="32" rx="8" fill="#f8faf9" stroke="#d9e6e0"/><text x="285" y="160" class="cell" style="font-size:10px">All statuses</text>
+      <g transform="translate(122 218)"><rect width="252" height="270" rx="12" fill="#fff" stroke="#dfebe5"/>
+        <text x="14" y="27" class="tablehead">TRANSACTION</text><text x="119" y="27" class="tablehead">RISK</text><text x="178" y="27" class="tablehead">STATUS</text>
+        <g stroke="#e9efec"><path d="M0 43H252"/><path d="M0 83H252"/><path d="M0 123H252"/><path d="M0 163H252"/><path d="M0 203H252"/></g>
+        <g class="cell"><text x="14" y="68" fill="#177b61">181dda20</text><text x="119" y="68">90</text><text x="178" y="68">Declined</text><text x="14" y="108" fill="#177b61">bc440874</text><text x="119" y="108">65</text><text x="178" y="108">Flagged</text><text x="14" y="148" fill="#177b61">705451fc</text><text x="119" y="148">35</text><text x="178" y="148">Approved</text><text x="14" y="188" fill="#177b61">e63d09e8</text><text x="119" y="188">55</text><text x="178" y="188">Flagged</text></g>
+        <g><rect x="112" y="54" width="26" height="20" rx="6" fill="#fde3e7"/><rect x="112" y="94" width="26" height="20" rx="6" fill="#fae3d9"/><rect x="112" y="134" width="26" height="20" rx="6" fill="#e1f2dd"/><rect x="112" y="174" width="26" height="20" rx="6" fill="#fff0bf"/></g>
+      </g>
+      <rect x="122" y="511" width="252" height="1" fill="#e4ece8"/><text x="122" y="535" class="muted" style="font-size:10px">25 results  ·  Page 1 of 2</text>
+    </g>
+
+    <g transform="translate(954 224)" filter="url(#shadow)">
+      <rect width="392" height="548" rx="18" fill="#fbfcfb"/>
+      <rect width="104" height="548" rx="18" fill="url(#nav)"/><rect x="86" width="18" height="548" fill="url(#nav)"/>
+      <circle cx="32" cy="34" r="14" fill="#050a08" stroke="#386353"/><text x="27" y="39" fill="white" font-size="14" font-weight="800">N</text>
+      <text x="17" y="82" class="navcopy" style="font-size:10px">OVERVIEW</text><text x="17" y="114" class="navcopy" style="font-size:10px">PAYMENTS</text><text x="17" y="146" class="navcopy" style="font-size:10px">FRAUD</text>
+      <rect x="11" y="162" width="82" height="38" rx="9" fill="url(#active)" stroke="#5fe4b5" stroke-opacity=".45"/><text x="25" y="185" fill="white" font-size="11" font-weight="700">Review</text>
+      <text x="17" y="230" class="navcopy" style="font-size:10px">SETTINGS</text>
+      <text x="122" y="42" class="tiny">INVESTIGATION QUEUE</text><text x="122" y="77" class="title">Fraud review</text><text x="122" y="102" class="copy" style="font-size:12px">Flagged and declined payments first.</text>
+      <rect x="122" y="125" width="252" height="69" rx="12" fill="#fffaf0" stroke="#f0dfb8"/>
+      <text x="139" y="151" fill="#805b22" font-size="11" font-weight="750">REVIEW PRIORITY: SCORE 41+</text><text x="139" y="173" fill="#8e7650" font-size="10">Compare context with the rules.</text>
+      <circle cx="352" cy="149" r="4" fill="#36b681"/><text x="321" y="174" fill="#588276" font-size="10" font-weight="700">Live queue</text>
+      <g transform="translate(122 218)"><rect width="252" height="270" rx="12" fill="#fff" stroke="#dfebe5"/>
+        <text x="14" y="27" class="tablehead">TRANSACTION</text><text x="119" y="27" class="tablehead">RISK</text><text x="178" y="27" class="tablehead">STATUS</text>
+        <g stroke="#e9efec"><path d="M0 43H252"/><path d="M0 83H252"/><path d="M0 123H252"/><path d="M0 163H252"/><path d="M0 203H252"/></g>
+        <g class="cell"><text x="14" y="68" fill="#177b61">181dda20</text><text x="119" y="68">90 critical</text><text x="178" y="68">Declined</text><text x="14" y="108" fill="#177b61">bc440874</text><text x="119" y="108">65 high</text><text x="178" y="108">Flagged</text><text x="14" y="148" fill="#177b61">e63d09e8</text><text x="119" y="148">55 medium</text><text x="178" y="148">Flagged</text><text x="14" y="188" fill="#177b61">86493c1c</text><text x="119" y="188">90 critical</text><text x="178" y="188">Declined</text></g>
+      </g>
+      <rect x="122" y="511" width="252" height="1" fill="#e4ece8"/><text x="122" y="535" class="muted" style="font-size:10px">9 results  ·  Page 1 of 1</text>
+    </g>
+  </g>
+</svg>

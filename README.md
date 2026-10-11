@@ -1,83 +1,132 @@
 # TxnGuard
 
-TxnGuard is a real-time fraud detection and transaction monitoring MVP for merchant payment flows. A merchant sends a payment event with an API key; TxnGuard scores it, records the decision and audit events, then updates the operations dashboard in real time.
+> A real-time fraud-operations workspace for merchant payment flows.
 
-## What it does
+TxnGuard receives a merchant payment event, evaluates deterministic fraud rules, persists the result, and gives an operations team an immediately usable investigation surface. It is deliberately built as an operational product—not a checkout page or a generic analytics demo.
 
-- Merchant registration, login, refresh-token rotation, and API-key rotation
-- API-key-protected transaction ingestion with idempotency keys
-- Rule-based fraud scoring: country mismatch, high amount, merchant velocity, and overnight high-value transactions
-- PostgreSQL transaction and fraud-event audit trail
-- Redis fixed-window velocity counting
-- BullMQ-powered realtime-event delivery with retry
-- Next.js risk-operations dashboard with overview, filtering, transaction detail, and settings
+## What problem does it solve?
+
+Payment decisions are only useful when they are explainable and actionable. A merchant needs to know **what was accepted, what was stopped, why a rule changed the outcome, and whether the dashboard reflects that decision now**.
+
+TxnGuard closes that loop:
+
+1. A merchant backend submits a payment with its API key and idempotency key.
+2. The API evaluates country mismatch, high-value, velocity, and overnight-risk signals.
+3. The decision and audit trail are written to PostgreSQL before the response is returned.
+4. A BullMQ job delivers the already-persisted decision to the merchant’s Socket.IO room.
+5. The dashboard refreshes its operational view without a browser reload.
+
+This split matters: payment ingestion stays durable even when realtime delivery is delayed or Redis is temporarily unavailable. BullMQ retries notification delivery; it never makes a merchant retry a charge request.
+
+### Who uses it?
+
+| Actor | Access | Primary job |
+| --- | --- | --- |
+| Merchant operator | Email + password dashboard session | Monitor payment health, inspect decisions, investigate risky payments, rotate API keys. |
+| Merchant backend | `x-api-key` | Submit an idempotent payment decision request. |
+| Fraud analyst | Dashboard access | Work flagged and declined payments from the investigation queue. |
 
 ## Architecture
 
-```text
-Merchant integration --HTTP/API key--> NestJS API --writes--> PostgreSQL
-                                      |
-                                      +--velocity--> Redis
-                                      +--job--> BullMQ / Redis --> Socket.IO --> Dashboard
+### System map
+
+```mermaid
+flowchart LR
+  Merchant[Merchant backend] -->|POST /transactions<br/>x-api-key + idempotency key| API[NestJS API]
+  Operator[Merchant operator] -->|Email + password| Web[Next.js operations dashboard]
+  Web <-->|REST + Socket.IO| API
+
+  API -->|Read/write source of truth| Postgres[(PostgreSQL)]
+  API -->|Velocity counters with TTL| Redis[(Redis)]
+  API -->|Enqueue persisted decision| Queue[BullMQ<br/>transaction-events]
+  Queue --> Worker[Queue worker]
+  Worker -->|Merchant Socket.IO room| Web
+
+  subgraph Decision path
+    API --> Rules[Rule-based fraud engine]
+    Rules --> API
+  end
 ```
 
-PostgreSQL is the source of truth. Redis holds temporary velocity counters and BullMQ jobs. The fraud decision is made synchronously during ingestion; the queue handles the downstream dashboard notification.
+| Component | Responsibility |
+| --- | --- |
+| Next.js | Merchant dashboard: overview, transaction filters, drawer-based audit detail, fraud review, settings. |
+| NestJS | Authentication, merchant boundaries, transaction ingestion, fraud decisioning, analytics, OpenAPI. |
+| PostgreSQL + Drizzle | Durable merchant, transaction, refresh-token and fraud-event records. |
+| Redis | Fixed-window velocity counts, API-key rotation limit, BullMQ backing store. |
+| BullMQ + Socket.IO | Decoupled, retryable delivery of persisted decisions to the open dashboard. |
+| Shared package | TypeScript contracts and Zod-backed data shapes used across API and web. |
 
-## Stack
+### Decision and delivery sequence
 
-- pnpm workspace and Turborepo
-- NestJS, Drizzle ORM, PostgreSQL, Redis, BullMQ, Socket.IO
-- Next.js, React Query, Zustand, Recharts
-- Shared TypeScript and Zod contracts
+```mermaid
+sequenceDiagram
+  participant M as Merchant backend
+  participant A as NestJS API
+  participant F as Fraud engine
+  participant P as PostgreSQL
+  participant R as Redis / BullMQ
+  participant W as Queue worker
+  participant D as Dashboard
 
-## Quick start
-
-Prerequisites: Node.js 22+, pnpm 11+, and Docker Desktop.
-
-The shortest path is:
-
-```bash
-make setup
-make dev
+  M->>A: Submit payment + API key + idempotency key
+  A->>F: Evaluate amount, origin, velocity, time
+  F->>R: Read/increment velocity window
+  F-->>A: Score, severity, decision, reasons
+  A->>P: Persist transaction and fraud events
+  A->>R: Enqueue transaction-events job
+  A-->>M: Final persisted decision
+  R->>W: Deliver queued job (with retry)
+  W->>D: Socket.IO transaction event
+  D->>A: Refetch affected dashboard queries
 ```
 
-`make setup` installs dependencies, creates `.env` from the example when necessary, starts PostgreSQL and Redis, and applies migrations.
+### Trust boundaries
 
-<details>
-<summary>Equivalent manual commands</summary>
+- API keys are for machine-to-machine transaction ingestion; they are never used to sign in to the dashboard.
+- Email/password creates a merchant-scoped dashboard session via access and refresh tokens.
+- Every list, detail, analytics and Socket.IO subscription is merchant-scoped.
+- API-key rotation is rate-limited per merchant (three rotations per hour by default).
+- PostgreSQL remains authoritative; Redis holds disposable counters and queue state.
 
-```bash
-pnpm install
-cp .env.example .env
-docker compose up -d
-pnpm --filter @txnguard/api db:migrate
-pnpm dev
-```
+## Product surfaces
 
-</details>
+The dashboard is designed for calm, dense operational work: clear status states, investigation-first severity cues, responsive filter controls, and an inline audit drawer instead of disruptive detail navigation.
 
-The web app runs at [http://localhost:3000](http://localhost:3000), the API at [http://localhost:3001](http://localhost:3001), and Swagger at [http://localhost:3001/docs](http://localhost:3001/docs) in development.
+![TxnGuard overview, transactions, and fraud-review product surfaces](docs/images/product-surfaces.svg)
 
-Wait for the local dependencies to become healthy when needed:
+### Overview
 
-```bash
-docker compose ps
-curl http://localhost:3001/health
-```
+- Shows volume, approval rate, average risk and immediate attention count for a selectable time range.
+- Activity buckets and severity bands are interactive: selecting one opens the corresponding filtered transactions or fraud-review queue.
+- Recent payments open the same audit drawer used across the workspace.
 
-## Local services
+### Transactions
 
-| Service | Address | Purpose |
-| --- | --- | --- |
-| PostgreSQL | `localhost:5433` | Durable merchant, transaction, and fraud-event data |
-| Redis | `localhost:6379` | Velocity counters and BullMQ jobs |
-| API | `localhost:3001` | REST API, Swagger, and Socket.IO |
-| Web | `localhost:3000` | Risk-operations dashboard |
+- Status and severity filters update in place rather than remounting the page.
+- Pagination works on both the standard table and responsive card presentation.
+- Selecting a row opens its payment context and fraud-event audit trail in a side panel.
 
-## Try the transaction flow
+### Fraud review
 
-1. Open `http://localhost:3000/register`, create a merchant, and copy the one-time API key.
-2. Keep the dashboard open, then submit a transaction from another terminal:
+- Starts with a useful default queue: flagged and declined payments whose score is 41 or more.
+- Filtered links retain context and show **Show all** only when there is active context to clear.
+- Critical, high, and medium severity views are reachable directly from the overview.
+
+## Fraud rules in v1
+
+| Signal | Effect |
+| --- | --- |
+| Card country and IP country differ | Adds fraud score. |
+| High-value amount | Adds fraud score. |
+| Merchant velocity threshold exceeded | Adds fraud score using a Redis fixed window. |
+| High-value payment between 00:00–05:00 UTC | Adds fraud score. |
+
+The accumulated score maps to `none`, `low`, `medium`, `high`, or `critical` severity, and then to `approved`, `flagged`, or `declined` status. Every applied rule is retained in the audit trail.
+
+## API integration
+
+Register a merchant in the dashboard, then use the one-time API key from registration or a rotated key from **Settings**.
 
 ```bash
 curl -X POST http://localhost:3001/transactions \
@@ -94,109 +143,97 @@ curl -X POST http://localhost:3001/transactions \
   }'
 ```
 
-The country mismatch and high amount rules should produce a flagged decision. The dashboard receives a realtime event and refreshes its data.
+The country mismatch and high amount make this a useful investigation example. Reusing the same idempotency key returns the established decision rather than creating a second payment.
 
-## Demo data flow
+## Demo the live workflow
 
-Use the included demo stream to fill one merchant dashboard with a realistic mix of clean, flagged, and declined payments.
+With the dashboard open, run the demo stream from a separate terminal:
 
-1. Start the stack and open the Wise Company dashboard in one browser tab:
+```bash
+export TXNGUARD_API_KEY='tg_live_your_key_here'
+make demo-flow
+```
 
-   ```bash
-   make infra-up
-   make dev
-   ```
+The stream submits nine mixed payment events. On a fresh velocity window, expect six approved, two flagged, and one declined decision. Verify the result in **Overview**, **Transactions**, and **Fraud review** without refreshing the browser.
 
-2. Use the API key shown when the merchant was registered. If it was not saved, sign in as Wise Company and use **Settings → Rotate API key**. Rotation invalidates the previous key and shows the replacement only once.
-
-3. In a second terminal, keep the key out of files and set it only for the shell session:
-
-   ```bash
-   export TXNGUARD_API_KEY='tg_live_your_key_here'
-   make demo-flow
-   ```
-
-   For a non-local API, add `TXNGUARD_API_URL=https://your-api.example` before the command.
-
-4. Keep the dashboard open while the script runs. It sends nine transactions in under a minute. On a fresh velocity window, expect:
-
-   | Result | Expected count | Where to inspect it |
-   | --- | ---: | --- |
-   | Approved | 6 | Overview and Transactions |
-   | Flagged | 2 | Fraud review and Transactions |
-   | Declined | 1 | Fraud review and Transactions |
-
-   The sequence demonstrates all deterministic v1 rules: country mismatch, high amount, and merchant velocity. The overnight rule is time-dependent and only triggers between 00:00 and 05:00 UTC.
-
-5. Verify the flow:
-
-   - **Overview:** transaction count becomes 9; severity mix and the activity chart update.
-   - **Transactions:** filter by **Flagged** and then **Declined**. Open a row to see its fraud-event audit trail.
-   - **Fraud review:** it should show the two flagged payments and one declined payment.
-   - **Realtime:** new rows and dashboard totals refresh without a manual browser refresh.
-
-## Live delivery incident
-
-To see why the API response, BullMQ and Socket.IO are separate concerns, keep **Overview** open and run:
+To see the delivery path paced one event at a time:
 
 ```bash
 export TXNGUARD_API_KEY='tg_live_your_key_here'
 make live-incident
 ```
 
-The script paces eight payments roughly one second apart. Each request is scored and stored first; its already-final decision is then placed on the `transaction-events` BullMQ queue. The worker delivers that event to the merchant Socket.IO room, and the dashboard refreshes its totals and table without polling or a browser refresh. If Redis or the worker is unavailable, the API still records the payment, while delivery is retried by BullMQ rather than making the merchant retry a charge request.
+The API persists the decision first, BullMQ queues its delivery, and Socket.IO updates the open dashboard. Wait 60 seconds between demo runs if you want a fresh velocity window.
 
-The velocity counter has a 60-second TTL. Wait at least one minute between demo runs if you want the expected counts above; otherwise earlier activity can cause the velocity rule to trigger sooner.
+## Repository layout
 
-## Database migrations
-
-```bash
-pnpm --filter @txnguard/api db:generate
-pnpm --filter @txnguard/api db:migrate
+```text
+apps/
+  api/        NestJS API, Drizzle schema, fraud engine, queue and realtime gateway
+  web/        Next.js merchant operations dashboard
+packages/
+  shared/     Shared TypeScript contracts
+scripts/      Repeatable demo payment streams
+docs/images/  Versioned README product visual
 ```
 
-`db:migrate` reads `DATABASE_URL` from `.env`. Commit generated migration SQL and Drizzle metadata together.
-
-## Quality checks
+## Quality and delivery
 
 ```bash
 make check
 ```
 
-The GitHub Actions workflow runs the TypeScript checks and production builds on every push and pull request.
+This runs workspace type checks, production builds, tests, and Docker Compose validation. The GitHub Actions workflow runs the same quality gate pieces on every push and pull request. Turbo’s `typecheck` task builds dependency packages first, so `@txnguard/shared` declarations exist in a clean CI checkout.
 
-## Make commands
+### Current scope
 
-Run `make help` to see the complete list. The most useful commands are:
+This is a portfolio-grade MVP, not a payment processor. The next production-hardening priorities are a durable outbox for transaction-to-queue publishing, automated API/UI coverage, atomic idempotency conflict handling, wider endpoint rate limiting, observability, secrets management, retention controls, and formal fraud-review workflows.
+
+## Local installation
+
+### Prerequisites
+
+- Node.js 22+
+- pnpm 11+
+- Docker Desktop
+
+### Quick start
+
+```bash
+make setup
+make dev
+```
+
+`make setup` installs dependencies, creates `.env` from the example when needed, starts PostgreSQL and Redis, then applies migrations. `make dev` starts both the API and dashboard.
+
+| Service | Address |
+| --- | --- |
+| Dashboard | [http://localhost:3000](http://localhost:3000) |
+| API | [http://localhost:3001](http://localhost:3001) |
+| API reference | [http://localhost:3001/docs](http://localhost:3001/docs) |
+| PostgreSQL | `localhost:5433` |
+| Redis | `localhost:6379` |
+
+### Manual equivalent
+
+```bash
+pnpm install
+cp .env.example .env
+docker compose up -d
+pnpm --filter @txnguard/api db:migrate
+pnpm dev
+```
+
+### Useful commands
 
 | Command | Purpose |
 | --- | --- |
-| `make setup` | First-time local setup: dependencies, `.env`, Docker, migrations |
-| `make dev` | Start the API and dashboard together |
-| `make api` / `make web` | Start one application only |
-| `make infra-up` / `make infra-down` | Start or stop PostgreSQL and Redis |
-| `make infra-status` | Check Docker service health |
-| `make migrate` / `make migration` | Apply or generate database migrations |
-| `make demo-flow` | Send a mixed transaction stream using `TXNGUARD_API_KEY` |
-| `make check` | Typecheck, build, test, and validate Docker Compose |
+| `make infra-up` / `make infra-down` | Start or stop PostgreSQL and Redis. |
+| `make infra-status` | Check local infrastructure health. |
+| `make migrate` / `make migration` | Apply or generate Drizzle migrations. |
+| `make api` / `make web` | Start one application only. |
+| `make demo-flow` | Send the mixed demo stream. |
+| `make live-incident` | Demonstrate BullMQ + Socket.IO delivery. |
+| `make check` | Run the local quality gate. |
 
-## Environment
-
-Copy `.env.example` to `.env` for local development. Do not commit `.env`; use unique, high-entropy JWT secrets outside local development.
-
-| Variable | Description |
-| --- | --- |
-| `DATABASE_URL` | PostgreSQL connection string |
-| `REDIS_URL` | Redis connection string |
-| `API_PORT` | API port, default `3001` |
-| `CORS_ORIGIN` | Allowed dashboard origin(s), comma-separated |
-| `JWT_ACCESS_SECRET` / `JWT_REFRESH_SECRET` | JWT signing secrets, 32+ characters |
-| `VELOCITY_WINDOW_SECONDS` | Redis fixed-window duration |
-| `VELOCITY_THRESHOLD` | Transactions allowed before the velocity rule triggers |
-| `API_KEY_ROTATION_WINDOW_SECONDS` / `API_KEY_ROTATION_LIMIT` | Merchant-specific fixed window for API-key rotations; defaults to 3 per hour |
-| `NEXT_PUBLIC_API_URL` | Browser-visible API base URL |
-| `NEXT_PUBLIC_SOCKET_URL` | Browser-visible Socket.IO base URL |
-
-## Current scope and next hardening steps
-
-This is an MVP, not a payment processor. Before a production deployment, add automated API/UI tests, a durable outbox for transaction-to-queue publishing, atomic idempotency conflict handling, broader endpoint rate limiting, monitoring, secrets management, data-retention policies, and merchant fraud-review workflows. API-key rotation is already protected by a merchant-specific Redis limit (3 per hour by default).
+Copy `.env.example` to `.env` for local development. Keep `.env` out of version control and use high-entropy, unique JWT secrets outside local development.
